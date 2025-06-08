@@ -1,9 +1,11 @@
-console.log("LoafUtils - Loaded!");
-
-if (!enabledMods.includes("mods/cato.js")) {
-    enabledMods.push("mods/cato.js");
-}
-
-let cato = "LoafUtils";
-
+elements.my_element = {
+    color: "#ff7700",
+    behavior: behaviors.WALL,
+    category: "Solids",
+    state: "solid",
+    density: 2500,
+    temp: 25,
+    reactions: {
+        "water": { elem1: "steam", elem2: "stone" }
+    }
 };
