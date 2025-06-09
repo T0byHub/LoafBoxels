@@ -1,5 +1,3 @@
-// made by Loafy :3
-
 elements.ultra_heat = {
 	color: "#ff0000",
 	category: "Temperature+",
