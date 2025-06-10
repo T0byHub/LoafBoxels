@@ -13155,16 +13155,17 @@ keybinds["KeyM"] = ()=>{ // Open Mod Manager
 	closeMenu();
 	showModManager();
 }
-
-keybinds["KeyL"] = ()=>{ // Open Mod Manager
-	closeMenu();
-	showThemeManager();
-}
     
 keybinds["Backslash"] = ()=>{ // Open settings
 	closeMenu();
 	showSettings();
 }
+
+keybinds["KeyO"] = ()=>{ // Open settings
+	closeMenu();
+	showThemes();
+}
+		
 keybinds["KeyL"] = ()=>{ // Open saves
 	closeMenu();
 	showSaves();
@@ -17411,14 +17412,6 @@ for (var k = 0; k < b0.split(" AND ").length; k++) {
 			modManagerUrl.focus();
 			showingMenu = "mods";
 		}
-
-    function showThemeManager() {
-			var themeParent = document.getElementById("themeParent");
-			var themeManagerUrl = document.getElementById("themeManagerUrl");
-			themeParent.style.display = "block";
-			themeManagerUrl.focus();
-			showingMenu = "mods";
-		}
     
 		function addMod(url,noMessage) {
 			let split = url.split(/ ?; ?/g);
@@ -17669,6 +17662,12 @@ for (var k = 0; k < b0.split(" AND ").length; k++) {
 			settingsParent.style.display = "block";
 			showingMenu = "settings";
 		}
+
+		function showThemes() {
+			var themesParent = document.getElementById("ThemesParent");
+			themesParent.style.display = "block";
+			showingMenu = "themes";
+		
 		function setSetting(setting,value) {
 			settings[setting] = value;
 			saveSettings();
@@ -18747,7 +18746,7 @@ window.onload = function() {
 			<div id="stats"></div>
 			<div id="controls">
 				<div id="toolControls">
-					<button id="shiftButton" title="Toggle Shift key" class="controlButton" onclick='toggleShift();focusGame();' on="false" style="display:none">↑</button><button id="pauseButton" title="Pause/play the simulation" class="controlButton" onclick='togglePause();focusGame();' on="false">Pause</button><button id="frameButton" title="Pause and play one frame" class="controlButton" onclick='doFrame();focusGame();' on="false">&gt;</button><button id="sizeDownButton" title="Decrease the brush size" class="controlButton" onclick="mouseSize -= shiftDown?mouseSize-1:2;checkMouseSize(true);centerMouse();focusGame();">-</button><button id="sizeUpButton" title="Increase the brush size" class="controlButton" onclick="mouseSize += shiftDown?14:2;checkMouseSize(true);centerMouse();focusGame();">+</button><button id="resetButton" title="Clear the entire scene" class="controlButton" onclick="resetPrompt();">Reset</button><button id="replaceButton" title="Override existing pixels when placing" class="controlButton" onclick='if (mode == "replace") {mode = null;this.setAttribute("on","false");}else {mode = "replace";this.setAttribute("on","true");};focusGame();' on="false">Replace</button><button id="elemSelectButton" title="Select an element by name" class="controlButton" onclick='chooseElementPrompt();'>E</button><button id="tpsButton" title="Change the simulation Ticks Per Second (TPS)" class="controlButton" onclick='tpsPrompt()'>Tps</button><!--<button id="hideButton" title="Stops updating the scene to allow more resources towards simulation" class="controlButton" onclick='if (hiding) {hiding = false;this.setAttribute("on","false");}else {hiding = true;this.setAttribute("on","true");};focusGame();' on="false">Hide</button>--><button id="infoButton" title="Brings up the element info screen" class="controlButton" onclick='if (showingMenu!="info"){closeMenu();showInfo("")}else{closeMenu()};' on="false">Info</button><button id="savesButton" title="Brings up the Save & Load menu" class="controlButton" onclick='if (showingMenu!="saves"){closeMenu();showSaves()}else{closeMenu()};' on="false">Saves</button><button id="modsButton" title="Brings up the Mod Manager" class="controlButton" onclick='if (showingMenu!="mods"){closeMenu();showModManager()}else{closeMenu()};' on="false">Mods</button><button id="settingsButton" title="Brings up the settings screen" class="controlButton" onclick='if (showingMenu!="settings"){closeMenu();showSettings()}else{closeMenu()};' on="false">Settings</button><button id="themeButton" title="ThemeCore" class="controlButton" onclick='if (showingMenu!="settings"){closeMenu();showSettings()}else{closeMenu()};' on="false">Settings</button>
+					<button id="shiftButton" title="Toggle Shift key" class="controlButton" onclick='toggleShift();focusGame();' on="false" style="display:none">↑</button><button id="pauseButton" title="Pause/play the simulation" class="controlButton" onclick='togglePause();focusGame();' on="false">Pause</button><button id="frameButton" title="Pause and play one frame" class="controlButton" onclick='doFrame();focusGame();' on="false">&gt;</button><button id="sizeDownButton" title="Decrease the brush size" class="controlButton" onclick="mouseSize -= shiftDown?mouseSize-1:2;checkMouseSize(true);centerMouse();focusGame();">-</button><button id="sizeUpButton" title="Increase the brush size" class="controlButton" onclick="mouseSize += shiftDown?14:2;checkMouseSize(true);centerMouse();focusGame();">+</button><button id="resetButton" title="Clear the entire scene" class="controlButton" onclick="resetPrompt();">Reset</button><button id="replaceButton" title="Override existing pixels when placing" class="controlButton" onclick='if (mode == "replace") {mode = null;this.setAttribute("on","false");}else {mode = "replace";this.setAttribute("on","true");};focusGame();' on="false">Replace</button><button id="elemSelectButton" title="Select an element by name" class="controlButton" onclick='chooseElementPrompt();'>E</button><button id="tpsButton" title="Change the simulation Ticks Per Second (TPS)" class="controlButton" onclick='tpsPrompt()'>Tps</button><!--<button id="hideButton" title="Stops updating the scene to allow more resources towards simulation" class="controlButton" onclick='if (hiding) {hiding = false;this.setAttribute("on","false");}else {hiding = true;this.setAttribute("on","true");};focusGame();' on="false">Hide</button>--><button id="infoButton" title="Brings up the element info screen" class="controlButton" onclick='if (showingMenu!="info"){closeMenu();showInfo("")}else{closeMenu()};' on="false">Info</button><button id="savesButton" title="Brings up the Save & Load menu" class="controlButton" onclick='if (showingMenu!="saves"){closeMenu();showSaves()}else{closeMenu()};' on="false">Saves</button><button id="modsButton" title="Brings up the Mod Manager" class="controlButton" onclick='if (showingMenu!="mods"){closeMenu();showModManager()}else{closeMenu()};' on="false">Mods</button><button id="settingsButton" title="Brings up the settings screen" class="controlButton" onclick='if (showingMenu!="settings"){closeMenu();showSettings()}else{closeMenu()};' on="false">Settings</button><button id="themeButton" title="ThemeCore" class="controlButton" onclick='if (showingMenu!="themes"){closeMenu();showThemes()}else{closeMenu()};' on="false">ThemeCore</button>
 				</div>
 				<script>
 					// if it is the 1st of April, add a rainbow-colored button
@@ -18837,24 +18836,6 @@ window.onload = function() {
 							modManagerList.innerHTML += `<li><a href="${mod.replaceAll('"','')}" target="_blank">${modName}</a> <span class="removeModX" onclick='removeMod("${mod.replaceAll('"','\\\"')}")'>X</span></li>`
 						}
 					}
-
-      <div id="themeParent">
-			 <div id="themeManager">
-				<button class="XButton" onclick="closeMenu();">-</button>
-				<span class="menuTitle">Enabled Mods</span>
-				<ul class="menuText" id="modManagerList"></ul>
-				<span id="noMods" style="display:none">You have no mods enabled.<br><br></span>
-				<script>
-					// If enabledMods has items, add an li to modManagerList for each item with the href to the item, target blank, and the item's name, with "<span class="removeModX" onclick='removeMod('>X</span>" after the link
-					if (enabledMods.length > 0) {
-						modManagerList = document.getElementById("modManagerList");
-						for (var i = 0; i < enabledMods.length; i++) {
-							var mod = enabledMods[i];
-							// modName is the last part of the mod's path
-							var modName = mod.split("/").pop();
-							modManagerList.innerHTML += `<li><a href="${mod.replaceAll('"','')}" target="_blank">${modName}</a> <span class="removeModX" onclick='removeMod("${mod.replaceAll('"','\\\"')}")'>X</span></li>`
-						}
-					}
             
 					else {
 						document.getElementById("noMods").style.display = "block";
@@ -18923,9 +18904,19 @@ window.onload = function() {
 				</div>
 			</div>
 		</div>
-	
-		<!--Settings Menu-->
-		<div id="settingsParent">
+
+
+
+
+
+		
+		<div id="ThemesParent">
+			<div id="themesMenu">
+				<button class="XButton" onclick="closeMenu();">-</button>
+			</div>
+		</div>
+
+                		<div id="settingsParent">
 			<div id="settingsMenu">
 				<button class="XButton" onclick="closeMenu();">-</button>
 				<span class="menuTitle" id="settingsMenuTitle">Settings</span>
@@ -19061,6 +19052,7 @@ Cancer, Landmine, Grenade, Smoke Grenade">?</span>
 				</div>
 			</div>
 		</div>
+		
 	</div>
 
 </div>
