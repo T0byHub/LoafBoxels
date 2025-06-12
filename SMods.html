@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoafBoxels</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #d4d4d8;
+            background: #18181b;
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+           height: 100vh;
+           background: url('https://i.imgur.com/tgAO8XU_off.png') no-repeat center center;
+           background-size: cover;
+           display: flex;
+           flex-direction: column;
+           justify-content: center;
+           align-items: center;
+           text-align: center;
+           position: relative;
+           border-radius: 0 0 40px 40px;
+          }
+
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
+            animation: gentle-pulse 6s ease-in-out infinite alternate;
+        }
+
+        @keyframes gentle-pulse {
+            0% { opacity: 0.4; }
+            100% { opacity: 0.6; }
+        }
+
+        .logo {
+          width: 180px;
+          height: 180px;
+          background: url('https://i.imgur.com/I35a8N8.png') no-repeat center center;
+          background-size: cover;
+          border-radius: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 2.5rem;
+          color: #ffffff;
+          font-weight: 700;
+          margin-bottom: 2rem;
+          box-shadow: 0 10px 40px rgba(99, 102, 241, 0.2);
+          position: relative;
+          z-index: 3;
+         }
+
+
+        .hero-text {
+            color: #ffffff;
+            position: relative;
+            z-index: 3;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+            color: #a1a1aa;
+        }
+
+        .scroll-indicator {
+            display: none;
+        }
+
+        @keyframes gentle-bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+            40% { transform: translateX(-50%) translateY(-8px); }
+            60% { transform: translateX(-50%) translateY(-4px); }
+        }
+
+        /* Mods Section */
+        .mods-section {
+            padding: 80px 20px;
+            background: linear-gradient(to bottom, #18181b, #1f1f23);
+            min-height: 100vh;
+            position: relative;
+            margin-top: 0;
+            border-radius: 40px 40px 0 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.8rem;
+            margin-bottom: 3rem;
+            color: #ffffff;
+            position: relative;
+            font-weight: 600;
+        }
+
+        .section-title::after {
+            content: '';
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 10px;
+        }
+
+        .mod-card {
+            background: linear-gradient(145deg, #27272a, #3f3f46);
+            border-radius: 30px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(161, 161, 170, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mod-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .mod-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .mod-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: #ffffff;
+            margin-right: 1.5rem;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .mod-info h3 {
+            font-size: 1.8rem;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .mod-info p {
+            color: #a1a1aa;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .mod-actions {
+            margin-top: 2rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .action-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+
+        .download-btn, .copy-url-btn {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #ffffff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .copy-url-btn {
+            background: linear-gradient(135deg, #8b5cf6, #a855f7);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+        }
+
+        .copy-url-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+        }
+
+        .url-display {
+            background: #1f1f23;
+            border-radius: 20px;
+            padding: 15px 20px;
+            border: 1px solid rgba(161, 161, 170, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+
+        .url-display:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: #27272a;
+        }
+
+        .url-text {
+            color: #6366f1;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            flex-grow: 1;
+            margin-right: 15px;
+            word-break: break-all;
+        }
+
+        .copy-url-icon {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #6366f1;
+        }
+
+        .copy-url-icon:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.5rem; }
+            .hero p { font-size: 1.1rem; }
+            .logo { width: 100px; height: 100px; font-size: 2rem; }
+            .mod-card { padding: 2rem; }
+            .action-group { flex-direction: column; }
+            .section-title { font-size: 2.2rem; }
+            .mod-header { flex-direction: column; text-align: center; }
+            .mod-icon { margin-right: 0; margin-bottom: 1rem; }
+            .url-display { flex-direction: column; gap: 10px; text-align: center; }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #27272a;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="logo"></div>
+        <div class="hero-text">
+            <h1>LoafBoxels</h1>
+        </div>
+
+    </section>
+
+    <!-- Mods Section -->
+    <section class="mods-section">
+        <div class="container">
+            <h2 class="section-title">Available Mods</h2>
+            
+            <div class="mod-card">
+                <div class="mod-header">
+                     <img src="https://i.imgur.com/tCBCa23.png" alt="Temperature+ Icon">
+                    <div class="mod-info">
+                        <h3>Temperature+</h3>
+                        <p>Temperature+ adds more Temperature bases tools.</p>
+                    </div>
+                </div>
+
+                    
+                    <div class="url-display">
+                        <span class="url-text" id="mod-url">https://t0byhub.github.io/LoafBoxels/Temperature+.js</span>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+
+        // Smooth scrolling
+        document.addEventListener('DOMContentLoaded', function() {
+            const scrollIndicator = document.querySelector('.scroll-indicator');
+            if (scrollIndicator) {
+                scrollIndicator.addEventListener('click', function() {
+                    document.querySelector('.mods-section').scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>
