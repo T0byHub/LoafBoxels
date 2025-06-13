@@ -16,14 +16,19 @@
     import { SimplexNoise } from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/+esm';
 
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb); // Himmelblau
+
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas') });
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     // Licht
     const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(0, 100, 100).normalize();
+    light.position.set(1, 1, 0.5).normalize();
     scene.add(light);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
 
     // Terrain
     const blockSize = 1;
@@ -49,28 +54,28 @@
       }
     }
 
-    for (let x = -terrainSize; x < terrainSize; x++) {
-      for (let z = -terrainSize; z < terrainSize; z++) {
-        const y = Math.floor(simplex.noise2D(x / 10, z / 10) * 3);
+    // Terrain generieren
+    for (let x = -terrainSize; x <= terrainSize; x++) {
+      for (let z = -terrainSize; z <= terrainSize; z++) {
+        const y = Math.floor(simplex.noise2D(x / 10, z / 10) * 3) - 2;
         addBlock(x, y, z);
       }
     }
 
-    camera.position.set(0, 10, 10);
+    // Spieler
+    camera.position.set(0, 5, 5);
 
-    // Steuerung
     const keys = {};
     document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
     document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-    // Gravitation
     let velocityY = 0;
     const gravity = -0.02;
     let isOnGround = false;
 
-    // Raycasting für Block setzen/löschen
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+
     document.addEventListener('click', e => {
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -106,17 +111,19 @@
       velocityY += gravity;
       camera.position.y += velocityY;
 
-      const below = Math.floor(camera.position.y - 1.7);
-      const blockBelow = blocks[`${Math.floor(camera.position.x)},${below},${Math.floor(camera.position.z)}`];
-      if (blockBelow) {
-        velocityY = 0;
+      const cx = Math.floor(camera.position.x);
+      const cz = Math.floor(camera.position.z);
+      const belowY = Math.floor(camera.position.y - 1.7);
+      const groundBlock = blocks[`${cx},${belowY},${cz}`];
+
+      if (groundBlock) {
         isOnGround = true;
-        camera.position.y = below + 1.8;
+        velocityY = 0;
+        camera.position.y = belowY + 1.8;
       } else {
         isOnGround = false;
       }
 
-      // Springen
       if (keys[' '] && isOnGround) {
         velocityY = 0.4;
       }
