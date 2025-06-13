@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebCraft</title>
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      height: 100%;
+      background: #000;
+    }
+    canvas {
+      display: block;
+    }
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 15px;
+      height: 15px;
+      margin-left: -7.5px;
+      margin-top: -7.5px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #logo {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      width: 100px;
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <img id="crosshair" src="https://i.imgur.com/cUZZYyW.png" alt="+">
+  <img id="logo" src="https://i.imgur.com/nX0GP8y.png" alt="WebCraft">
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
+    import { PointerLockControls } from 'https://unpkg.com/three@0.152.2/examples/jsm/controls/PointerLockControls.js';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new PointerLockControls(camera, document.body);
+    document.body.addEventListener('click', () => controls.lock());
+    scene.add(controls.getObject());
+    controls.getObject().position.y = 5;
+
+    const texture = new THREE.TextureLoader().load("https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Grass_Block_Texture_BE2.png/128px-Grass_Block_Texture_BE2.png");
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    const blockMat = new THREE.MeshBasicMaterial({ map: texture });
+    const blockGeo = new THREE.BoxGeometry(1, 1, 1);
+
+    const blocks = new Map();
+    function addBlock(x, y, z) {
+      const key = `${x},${y},${z}`;
+      if (blocks.has(key)) return;
+      const mesh = new THREE.Mesh(blockGeo, blockMat);
+      mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
+      scene.add(mesh);
+      blocks.set(key, mesh);
+    }
+
+    function removeBlock(x, y, z) {
+      const key = `${x},${y},${z}`;
+      const mesh = blocks.get(key);
+      if (mesh) {
+        scene.remove(mesh);
+        blocks.delete(key);
+      }
+    }
+
+    for (let x = -16; x < 16; x++) {
+      for (let z = -16; z < 16; z++) {
+        addBlock(x, 0, z);
+      }
+    }
+
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    const keys = {};
+    document.addEventListener('keydown', e => keys[e.code] = true);
+    document.addEventListener('keyup', e => keys[e.code] = false);
+
+    document.addEventListener('mousedown', e => {
+      if (!controls.isLocked) return;
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const intersects = Array.from(blocks.values()).map(m => {
+        const box = new THREE.Box3().setFromObject(m);
+        return { mesh: m, hit: raycaster.ray.intersectBox(box) };
+      }).filter(r => r.hit).sort((a, b) => a.hit.distance - b.hit.distance);
+      if (intersects.length === 0) return;
+      const hit = intersects[0];
+      const pos = hit.mesh.position.clone().floor();
+      if (e.button === 0) {
+        removeBlock(pos.x, pos.y, pos.z);
+      } else if (e.button === 2) {
+        const normal = hit.hit.clone().sub(camera.position).normalize().round();
+        const target = pos.clone().add(normal);
+        const dist = target.clone().addScalar(0.5).distanceTo(camera.position);
+        if (dist > 1.5) addBlock(target.x, target.y, target.z);
+      }
+    });
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    function animate() {
+      requestAnimationFrame(animate);
+      direction.set(0, 0, 0);
+      if (keys['KeyW']) direction.z -= 1;
+      if (keys['KeyS']) direction.z += 1;
+      if (keys['KeyA']) direction.x -= 1;
+      if (keys['KeyD']) direction.x += 1;
+      direction.normalize();
+      direction.applyEuler(controls.getObject().rotation);
+
+      velocity.x = direction.x * 10;
+      velocity.z = direction.z * 10;
+      controls.moveRight(velocity.x * 0.01);
+      controls.moveForward(velocity.z * 0.01);
+
+      const pos = controls.getObject().position;
+      const below = Math.floor(pos.y - 1.6);
+      const underKey = `${Math.floor(pos.x)},${below},${Math.floor(pos.z)}`;
+      if (blocks.has(underKey)) {
+        pos.y = below + 2.01;
+      } else {
+        velocity.y -= 0.5;
+        pos.y += velocity.y * 0.01;
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
