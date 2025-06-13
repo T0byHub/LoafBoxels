@@ -1,17 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>WebCraft</title>
   <style>
     html, body {
       margin: 0;
       overflow: hidden;
-      height: 100%;
       background: #000;
-    }
-    canvas {
-      display: block;
     }
     #crosshair {
       position: absolute;
@@ -19,8 +15,7 @@
       left: 50%;
       width: 15px;
       height: 15px;
-      margin-left: -7.5px;
-      margin-top: -7.5px;
+      transform: translate(-50%, -50%);
       pointer-events: none;
       z-index: 10;
     }
@@ -35,8 +30,8 @@
   </style>
 </head>
 <body>
-  <img id="crosshair" src="https://i.imgur.com/cUZZYyW.png" alt="+">
-  <img id="logo" src="https://i.imgur.com/nX0GP8y.png" alt="WebCraft">
+  <img id="crosshair" src="https://i.imgur.com/cUZZYyW.png" alt="+" />
+  <img id="logo" src="https://i.imgur.com/nX0GP8y.png" alt="WebCraft Logo" />
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
@@ -51,15 +46,14 @@
     const controls = new PointerLockControls(camera, document.body);
     document.body.addEventListener('click', () => controls.lock());
     scene.add(controls.getObject());
-    controls.getObject().position.y = 5;
+    controls.getObject().position.y = 3;
 
-    const texture = new THREE.TextureLoader().load("https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Grass_Block_Texture_BE2.png/128px-Grass_Block_Texture_BE2.png");
+    const texture = new THREE.TextureLoader().load("https://i.imgur.com/2D6bgZg.png");
     texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
     const blockMat = new THREE.MeshBasicMaterial({ map: texture });
     const blockGeo = new THREE.BoxGeometry(1, 1, 1);
-
     const blocks = new Map();
+
     function addBlock(x, y, z) {
       const key = `${x},${y},${z}`;
       if (blocks.has(key)) return;
@@ -106,8 +100,7 @@
       } else if (e.button === 2) {
         const normal = hit.hit.clone().sub(camera.position).normalize().round();
         const target = pos.clone().add(normal);
-        const dist = target.clone().addScalar(0.5).distanceTo(camera.position);
-        if (dist > 1.5) addBlock(target.x, target.y, target.z);
+        addBlock(target.x, target.y, target.z);
       }
     });
     document.addEventListener('contextmenu', e => e.preventDefault());
@@ -139,6 +132,7 @@
 
       renderer.render(scene, camera);
     }
+
     animate();
   </script>
 </body>
