@@ -1,140 +1,137 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>WebCraft</title>
+<title>WebCraft (ohne Three.js)</title>
 <style>
-  html, body {
-    margin: 0; overflow: hidden; background: #000;
-    font-family: sans-serif;
-    user-select: none;
+  body, html {
+    margin:0; overflow:hidden; background:#000; user-select:none;
+    font-family: monospace, monospace;
   }
   #crosshair {
-    position: absolute; top: 50%; left: 50%;
-    width: 15px; height: 15px;
-    transform: translate(-50%, -50%);
-    pointer-events: none; z-index: 10;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 15px;
+    height: 15px;
+    margin-left: -7.5px;
+    margin-top: -7.5px;
+    pointer-events: none;
+    z-index: 10;
   }
-  #logo {
-    position: absolute; bottom: 10px; left: 10px;
-    width: 100px; pointer-events: none; z-index: 10;
+  canvas {
+    display: block;
+    background: #87CEEB; /* Himmelblau */
   }
 </style>
 </head>
 <body>
-<img id="crosshair" src="https://i.imgur.com/cUZZYyW.png" alt="crosshair" />
-<img id="logo" src="https://i.imgur.com/nX0GP8y.png" alt="logo" />
-<script type="module">
-import * as THREE from "https://unpkg.com/three@0.152.2/build/three.module.js";
-import { PointerLockControls } from "https://unpkg.com/three@0.152.2/examples/jsm/controls/PointerLockControls.js";
+<img id="crosshair" src="https://i.imgur.com/cUZZYyW.png" alt="Crosshair" />
+<canvas id="game"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W, H;
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({antialias: false});
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-const controls = new PointerLockControls(camera, document.body);
-document.body.addEventListener('click', () => controls.lock());
-scene.add(controls.getObject());
-controls.getObject().position.y = 2.5;
-
-const loader = new THREE.TextureLoader();
-const grassTexture = loader.load("https://i.imgur.com/2D6bgZg.png");
-grassTexture.magFilter = THREE.NearestFilter;
-const blockMaterial = new THREE.MeshBasicMaterial({map: grassTexture});
-const blockGeo = new THREE.BoxGeometry(1,1,1);
-
-const blocks = new Map();
-function posKey(x,y,z){ return `${x},${y},${z}`; }
-function addBlock(x,y,z){
-  const key = posKey(x,y,z);
-  if(blocks.has(key)) return;
-  const mesh = new THREE.Mesh(blockGeo, blockMaterial);
-  mesh.position.set(x+0.5,y+0.5,z+0.5);
-  scene.add(mesh);
-  blocks.set(key, mesh);
-}
-function removeBlock(x,y,z){
-  const key = posKey(x,y,z);
-  const mesh = blocks.get(key);
-  if(mesh){
-    scene.remove(mesh);
-    blocks.delete(key);
+  function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
   }
-}
-for(let x=-16; x<16; x++){
-  for(let z=-16; z<16; z++){
-    addBlock(x,0,z);
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Einfaches Terrain (16x16 Blöcke flach)
+  const terrainSize = 16;
+  const blockSize = 40; // Pixel auf 2D-Canvas
+  const blocks = [];
+  for(let x=0; x<terrainSize; x++){
+    for(let z=0; z<terrainSize; z++){
+      blocks.push({x, y:0, z});
+    }
   }
-}
 
-const velocity = new THREE.Vector3();
-const direction = new THREE.Vector3();
-const keys = {};
-document.addEventListener('keydown', e => keys[e.code] = true);
-document.addEventListener('keyup', e => keys[e.code] = false);
+  // Spielerposition und Blickrichtung (nur 2D seitlich)
+  let player = {x:8, y:2, z:8, dir:0}; // dir in Grad, 0 = Richtung +z
 
-document.addEventListener('mousedown', e => {
-  if(!controls.isLocked) return;
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-  const intersects = [];
-  blocks.forEach(mesh => {
-    const box = new THREE.Box3().setFromObject(mesh);
-    const intersect = raycaster.ray.intersectBox(box);
-    if(intersect) intersects.push({mesh, dist: camera.position.distanceTo(intersect), point: intersect.clone()});
+  // Steuerung
+  const keys = {};
+  window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+  // Textur laden (grass)
+  const grass = new Image();
+  grass.src = 'https://i.imgur.com/2D6bgZg.png';
+
+  // 3D-Projektion (ganz simpel)
+  function project(x,y,z){
+    const fov = 200;
+    const scale = fov / (z - player.z + 5);
+    return {
+      x: (x - player.x) * scale + W/2,
+      y: H/2 - (y - player.y) * scale,
+      scale
+    };
+  }
+
+  // Blöcke zeichnen (als einfache Rechtecke, perspektivisch skaliert)
+  function drawBlock(x,y,z){
+    const p = project(x,y,z);
+    if(p.scale <= 0) return; // nicht sichtbar
+
+    const size = blockSize * p.scale;
+    ctx.drawImage(grass, 0, 0, 16, 16, p.x - size/2, p.y - size, size, size);
+    // ein einfacher Block-Umriss
+    ctx.strokeStyle = 'black';
+    ctx.strokeRect(p.x - size/2, p.y - size, size, size);
+  }
+
+  // Haupt-Loop
+  function loop(){
+    ctx.clearRect(0,0,W,H);
+
+    // Bewegung
+    const speed = 0.1;
+    if(keys['w']) {
+      player.x += Math.sin(player.dir * Math.PI/180) * speed;
+      player.z += Math.cos(player.dir * Math.PI/180) * speed;
+    }
+    if(keys['s']) {
+      player.x -= Math.sin(player.dir * Math.PI/180) * speed;
+      player.z -= Math.cos(player.dir * Math.PI/180) * speed;
+    }
+    if(keys['a']) player.dir -= 2;
+    if(keys['d']) player.dir += 2;
+
+    // Blöcke zeichnen, von hinten nach vorne (Z sortiert)
+    blocks.sort((a,b) => (b.z - player.z) - (a.z - player.z));
+    for(const b of blocks){
+      drawBlock(b.x,b.y,b.z);
+    }
+
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  // Klicks: Linksabbau, Rechtsbau (einfach block vor Spieler)
+  canvas.addEventListener('mousedown', e => {
+    e.preventDefault();
+    // Block direkt vor Spieler
+    const frontX = Math.floor(player.x + Math.sin(player.dir * Math.PI/180));
+    const frontZ = Math.floor(player.z + Math.cos(player.dir * Math.PI/180));
+    const frontY = 0;
+    const idx = blocks.findIndex(b => b.x === frontX && b.y === frontY && b.z === frontZ);
+    if(e.button === 0){
+      if(idx !== -1) blocks.splice(idx,1);
+    }
+    else if(e.button === 2){
+      if(idx === -1) blocks.push({x:frontX,y:frontY,z:frontZ});
+    }
   });
-  if(intersects.length===0) return;
-  intersects.sort((a,b) => a.dist-b.dist);
-  const hit = intersects[0];
-  const pos = new THREE.Vector3().copy(hit.mesh.position).floor();
-  if(e.button===0){
-    removeBlock(pos.x,pos.y,pos.z);
-  } else if(e.button===2){
-    const dir = new THREE.Vector3().subVectors(hit.point, camera.position).normalize();
-    const placePos = pos.clone().add(dir.round());
-    addBlock(placePos.x, placePos.y, placePos.z);
-  }
-});
-document.addEventListener('contextmenu', e => e.preventDefault());
-
-function animate(){
-  requestAnimationFrame(animate);
-
-  direction.set(0,0,0);
-  if(keys['KeyW']) direction.z -= 1;
-  if(keys['KeyS']) direction.z += 1;
-  if(keys['KeyA']) direction.x -= 1;
-  if(keys['KeyD']) direction.x += 1;
-  direction.normalize();
-  direction.applyEuler(controls.getObject().rotation);
-
-  velocity.x = direction.x * 10;
-  velocity.z = direction.z * 10;
-
-  controls.moveRight(velocity.x * 0.02);
-  controls.moveForward(velocity.z * 0.02);
-
-  const pos = controls.getObject().position;
-  const blockBelowKey = posKey(Math.floor(pos.x), Math.floor(pos.y - 1.8), Math.floor(pos.z));
-  if(blocks.has(blockBelowKey)){
-    pos.y = Math.floor(pos.y - 1.8) + 2.01;
-    velocity.y = 0;
-  } else {
-    velocity.y -= 0.5;
-    pos.y += velocity.y * 0.02;
-  }
-
-  renderer.render(scene, camera);
-}
-animate();
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+})();
 </script>
 </body>
 </html>
