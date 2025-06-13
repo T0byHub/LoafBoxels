@@ -2,261 +2,393 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Mini Minecraft Terrain</title>
+<title>Mini 3D Minecraft mit Three.js</title>
 <style>
-  body { margin:0; overflow:hidden; background:#87CEEB; }
-  canvas { display:block; margin:0 auto; background:#87CEEB; }
+  body { margin: 0; overflow: hidden; }
+  canvas { display: block; }
 </style>
 </head>
 <body>
-<canvas id="game" width="800" height="450"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+
 <script>
-// --- Konfiguration ---
-const BLOCK_SIZE = 32; // Pixelgröße eines Blocks
-const CHUNK_SIZE = 16; // Blöcke pro Chunk (Quadratisch)
-const GRAVITY = 0.5;
-const JUMP_VELOCITY = -10;
-const MOVE_SPEED = 4;
-const WORLD_HEIGHT = 64; // Welt-Höhe in Blöcken
+// --- Setup Szene, Kamera, Renderer ---
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb); // Himmelblau
 
-// Canvas Setup
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.y = 5;
 
-// Spieler
-const player = {
-  x: BLOCK_SIZE * 8, // Pixel-Koordinaten
-  y: BLOCK_SIZE * 10,
-  width: BLOCK_SIZE * 0.8,
-  height: BLOCK_SIZE * 1.6,
-  velX: 0,
-  velY: 0,
-  onGround: false
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Steuerung: PointerLockControls für FPS-Bewegung
+const controls = new THREE.PointerLockControls(camera, document.body);
+
+document.body.addEventListener('click', () => {
+  controls.lock();
+}, false);
+
+let moveForward = false;
+let moveBackward = false;
+let moveLeft = false;
+let moveRight = false;
+let canJump = false;
+
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+
+const onKeyDown = function (event) {
+  switch (event.code) {
+    case 'ArrowUp':
+    case 'KeyW':
+      moveForward = true;
+      break;
+    case 'ArrowLeft':
+    case 'KeyA':
+      moveLeft = true;
+      break;
+    case 'ArrowDown':
+    case 'KeyS':
+      moveBackward = true;
+      break;
+    case 'ArrowRight':
+    case 'KeyD':
+      moveRight = true;
+      break;
+    case 'Space':
+      if (canJump === true) velocity.y += 10;
+      canJump = false;
+      break;
+  }
 };
 
-// Steuerung
-const keys = {
-  left: false,
-  right: false,
-  up: false
+const onKeyUp = function (event) {
+  switch (event.code) {
+    case 'ArrowUp':
+    case 'KeyW':
+      moveForward = false;
+      break;
+    case 'ArrowLeft':
+    case 'KeyA':
+      moveLeft = false;
+      break;
+    case 'ArrowDown':
+    case 'KeyS':
+      moveBackward = false;
+      break;
+    case 'ArrowRight':
+    case 'KeyD':
+      moveRight = false;
+      break;
+  }
 };
 
-// Welt-Daten: Map von chunkX zu Chunk-Arrays
-// Jeder Chunk ist ein 2D Array [y][x] mit Blöcken
-// Block 0 = Luft, 1 = Erde
+document.addEventListener('keydown', onKeyDown);
+document.addEventListener('keyup', onKeyUp);
+
+// --- Block und Chunk Setup ---
+
+const BLOCK_SIZE = 1;
+const CHUNK_SIZE = 16;
+const WORLD_HEIGHT = 16;
+
+// Einfaches Terrain perlin-artig (Sinus + Rauschen)
+function terrainHeight(x, z) {
+  return Math.floor(5 + 2 * Math.sin(x * 0.3) + 2 * Math.cos(z * 0.3));
+}
+
+// Welt-Daten (Chunks), Map von chunkX, chunkZ zu Block 3D Arrays
 const worldChunks = new Map();
 
-// Hilfsfunktion: Pseudo-Perlin / Simplex artige Höhe für Terrain
-function terrainHeight(x) {
-  // Einfaches Sinus + Rauschen
-  return Math.floor(20 + 5 * Math.sin(x * 0.3) + (Math.sin(x * 0.7)*3));
+// Key für chunk Map
+function chunkKey(cx, cz) {
+  return cx + ',' + cz;
 }
 
-// Generiere einen Chunk bei chunkX
-function generateChunk(chunkX) {
-  if(worldChunks.has(chunkX)) return; // Chunk schon da
+// Material für Blöcke
+const blockMaterial = new THREE.MeshLambertMaterial({color: 0x654321});
+const blockGeometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
 
-  const chunk = [];
-  for(let y=0; y < WORLD_HEIGHT; y++) {
-    chunk[y] = [];
-    for(let x=0; x < CHUNK_SIZE; x++) {
-      // Globale x Position
-      const globalX = chunkX * CHUNK_SIZE + x;
-      const height = terrainHeight(globalX);
+// Chunk-Objekt speichert Mesh für Optimierung
+class Chunk {
+  constructor(cx, cz) {
+    this.cx = cx;
+    this.cz = cz;
+    this.blocks = []; // 3D Array [x][y][z] = 0/1
+    this.meshGroup = new THREE.Group();
+    this.meshGroup.position.set(cx * CHUNK_SIZE * BLOCK_SIZE, 0, cz * CHUNK_SIZE * BLOCK_SIZE);
+    scene.add(this.meshGroup);
+    this.generate();
+  }
 
-      // Blöcke unter Höhe sind Erde, darüber Luft
-      if(y >= WORLD_HEIGHT - height) chunk[y][x] = 1;
-      else chunk[y][x] = 0;
+  generate() {
+    // Erstelle 3D Array
+    this.blocks = new Array(CHUNK_SIZE);
+    for(let x=0; x<CHUNK_SIZE; x++) {
+      this.blocks[x] = new Array(WORLD_HEIGHT);
+      for(let y=0; y<WORLD_HEIGHT; y++) {
+        this.blocks[x][y] = new Array(CHUNK_SIZE).fill(0);
+      }
     }
-  }
-  worldChunks.set(chunkX, chunk);
-}
-
-// Chunk-Ladebereich (aktiver Bereich um Spieler)
-const RENDER_DISTANCE = 3; // Anzahl Chunks links/rechts
-
-// Gibt Block an Weltposition zurück
-function getBlockAt(globalX, globalY) {
-  if(globalY < 0 || globalY >= WORLD_HEIGHT) return 0; // Luft außerhalb Welt
-
-  const chunkX = Math.floor(globalX / CHUNK_SIZE);
-  generateChunk(chunkX);
-  const chunk = worldChunks.get(chunkX);
-  const localX = globalX % CHUNK_SIZE;
-  if(localX < 0) return 0;
-
-  return chunk[globalY][localX];
-}
-
-// Setzt Block an Weltposition (globalX/globalY) auf neuen Wert
-function setBlockAt(globalX, globalY, value) {
-  if(globalY < 0 || globalY >= WORLD_HEIGHT) return; 
-  const chunkX = Math.floor(globalX / CHUNK_SIZE);
-  generateChunk(chunkX);
-  const chunk = worldChunks.get(chunkX);
-  const localX = globalX % CHUNK_SIZE;
-  if(localX < 0) return;
-  chunk[globalY][localX] = value;
-}
-
-// Kollisionsabfrage für Spieler mit der Welt
-function checkCollision(x, y, width, height) {
-  // Prüfe alle Blöcke, die das Rechteck berührt
-  const startX = Math.floor(x / BLOCK_SIZE);
-  const endX = Math.floor((x + width) / BLOCK_SIZE);
-  const startY = Math.floor(y / BLOCK_SIZE);
-  const endY = Math.floor((y + height) / BLOCK_SIZE);
-
-  for(let by = startY; by <= endY; by++) {
-    for(let bx = startX; bx <= endX; bx++) {
-      if(getBlockAt(bx, by) !== 0) return true;
+    // Fülle mit Terrain
+    for(let x=0; x<CHUNK_SIZE; x++) {
+      for(let z=0; z<CHUNK_SIZE; z++) {
+        const worldX = this.cx * CHUNK_SIZE + x;
+        const worldZ = this.cz * CHUNK_SIZE + z;
+        const h = terrainHeight(worldX, worldZ);
+        for(let y=0; y < h; y++) {
+          this.blocks[x][y][z] = 1; // Block vorhanden
+        }
+      }
     }
-  }
-  return false;
-}
-
-// Spielschleife
-function update() {
-  // Bewegung
-  if(keys.left) player.velX = -MOVE_SPEED;
-  else if(keys.right) player.velX = MOVE_SPEED;
-  else player.velX = 0;
-
-  // Springen
-  if(keys.up && player.onGround) {
-    player.velY = JUMP_VELOCITY;
-    player.onGround = false;
+    this.buildMesh();
   }
 
-  // Gravitation
-  player.velY += GRAVITY;
-  if(player.velY > 12) player.velY = 12; // Terminal Velocity
-
-  // Neue Position voraussagen
-  let newX = player.x + player.velX;
-  let newY = player.y + player.velY;
-
-  // X-Kollision
-  if(!checkCollision(newX, player.y, player.width, player.height)) {
-    player.x = newX;
-  } else {
-    player.velX = 0;
-  }
-
-  // Y-Kollision
-  if(!checkCollision(player.x, newY, player.width, player.height)) {
-    player.y = newY;
-    player.onGround = false;
-  } else {
-    // Wenn nach unten kollidiert: auf Boden gesetzt
-    if(player.velY > 0) {
-      player.onGround = true;
+  buildMesh() {
+    // Entferne alte Meshes
+    while(this.meshGroup.children.length) {
+      const child = this.meshGroup.children[0];
+      this.meshGroup.remove(child);
+      child.geometry.dispose();
+      child.material.dispose();
     }
-    player.velY = 0;
-  }
-
-  render();
-  requestAnimationFrame(update);
-}
-
-// Zeichne Blöcke und Spieler
-function render() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // Kamera zentriert auf Spieler (Pixel)
-  const camX = player.x + player.width/2 - canvas.width/2;
-  const camY = player.y + player.height/2 - canvas.height/2;
-
-  // Lade alle nötigen Chunks (links/rechts)
-  const playerChunkX = Math.floor((player.x + player.width/2) / (CHUNK_SIZE * BLOCK_SIZE));
-
-  for(let cx = playerChunkX - RENDER_DISTANCE; cx <= playerChunkX + RENDER_DISTANCE; cx++) {
-    generateChunk(cx);
-  }
-
-  // Zeichne Blöcke
-  for(let cx = playerChunkX - RENDER_DISTANCE; cx <= playerChunkX + RENDER_DISTANCE; cx++) {
-    const chunk = worldChunks.get(cx);
-    if(!chunk) continue;
-
-    for(let y=0; y < WORLD_HEIGHT; y++) {
-      for(let x=0; x < CHUNK_SIZE; x++) {
-        if(chunk[y][x] !== 0) {
-          const globalX = cx * CHUNK_SIZE + x;
-          const px = globalX * BLOCK_SIZE - camX;
-          const py = y * BLOCK_SIZE - camY;
-          // Nur Blöcke sichtbar zeichnen, die im Canvas sind
-          if(px + BLOCK_SIZE < 0 || px > canvas.width || py + BLOCK_SIZE < 0 || py > canvas.height) continue;
-
-          // Erde: braun
-          ctx.fillStyle = '#654321';
-          ctx.fillRect(px, py, BLOCK_SIZE, BLOCK_SIZE);
-          // Block-Rand
-          ctx.strokeStyle = '#4B2E05';
-          ctx.strokeRect(px, py, BLOCK_SIZE, BLOCK_SIZE);
+    // Baue neue Würfel Meshes
+    for(let x=0; x<CHUNK_SIZE; x++) {
+      for(let y=0; y<WORLD_HEIGHT; y++) {
+        for(let z=0; z<CHUNK_SIZE; z++) {
+          if(this.blocks[x][y][z] === 1) {
+            const cube = new THREE.Mesh(blockGeometry, blockMaterial);
+            cube.position.set(
+              x * BLOCK_SIZE + BLOCK_SIZE/2,
+              y * BLOCK_SIZE + BLOCK_SIZE/2,
+              z * BLOCK_SIZE + BLOCK_SIZE/2
+            );
+            this.meshGroup.add(cube);
+          }
         }
       }
     }
   }
 
-  // Spieler zeichnen (rot)
-  const playerPx = player.x - camX;
-  const playerPy = player.y - camY;
-  ctx.fillStyle = '#FF0000';
-  ctx.fillRect(playerPx, playerPy, player.width, player.height);
+  // Block setzen und Mesh aktualisieren
+  setBlock(x, y, z, val) {
+    if(x<0||x>=CHUNK_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=CHUNK_SIZE) return;
+    this.blocks[x][y][z] = val;
+    this.buildMesh();
+  }
+
+  getBlock(x, y, z) {
+    if(x<0||x>=CHUNK_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=CHUNK_SIZE) return 0;
+    return this.blocks[x][y][z];
+  }
 }
 
-// Steuerung
-window.addEventListener('keydown', e => {
-  if(e.code === 'KeyA') keys.left = true;
-  if(e.code === 'KeyD') keys.right = true;
-  if(e.code === 'Space') keys.up = true;
-});
+// Chunk laden oder generieren
+function getChunk(cx, cz) {
+  const key = chunkKey(cx, cz);
+  if(!worldChunks.has(key)) {
+    const chunk = new Chunk(cx, cz);
+    worldChunks.set(key, chunk);
+  }
+  return worldChunks.get(key);
+}
 
-window.addEventListener('keyup', e => {
-  if(e.code === 'KeyA') keys.left = false;
-  if(e.code === 'KeyD') keys.right = false;
-  if(e.code === 'Space') keys.up = false;
-});
+// Weltweiten Block abfragen
+function getBlockAt(wx, wy, wz) {
+  const cx = Math.floor(wx / CHUNK_SIZE);
+  const cz = Math.floor(wz / CHUNK_SIZE);
+  const chunk = getChunk(cx, cz);
+  const lx = wx - cx * CHUNK_SIZE;
+  const lz = wz - cz * CHUNK_SIZE;
+  if(wy < 0 || wy >= WORLD_HEIGHT) return 0;
+  return chunk.getBlock(lx, wy, lz);
+}
 
-// Blöcke abbauen / platzieren mit Maus
-canvas.addEventListener('mousedown', e => {
-  // Mausposition relativ zu Canvas
-  const rect = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
+// Weltweiten Block setzen
+function setBlockAt(wx, wy, wz, val) {
+  const cx = Math.floor(wx / CHUNK_SIZE);
+  const cz = Math.floor(wz / CHUNK_SIZE);
+  const chunk = getChunk(cx, cz);
+  const lx = wx - cx * CHUNK_SIZE;
+  const lz = wz - cz * CHUNK_SIZE;
+  chunk.setBlock(lx, wy, lz, val);
+}
 
-  // Kamera wie im Render berechnen
-  const camX = player.x + player.width/2 - canvas.width/2;
-  const camY = player.y + player.height/2 - canvas.height/2;
+// Licht
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10, 20, 10);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x888888));
 
-  // Weltkoordinaten des angeklickten Blocks
-  const worldX = Math.floor((mouseX + camX) / BLOCK_SIZE);
-  const worldY = Math.floor((mouseY + camY) / BLOCK_SIZE);
+// Spieler Position (Weltkoordinaten in Blöcken, float für smooth)
+const playerPos = new THREE.Vector3(8, 10, 8);
+const playerVel = new THREE.Vector3(0, 0, 0);
+const playerHeight = 1.6;
+const playerRadius = 0.3;
 
-  // Abstand vom Spieler zum Block (für Range limit)
-  const distX = (worldX + 0.5)*BLOCK_SIZE - (player.x + player.width/2);
-  const distY = (worldY + 0.5)*BLOCK_SIZE - (player.y + player.height/2);
-  const dist = Math.sqrt(distX*distX + distY*distY);
-  if(dist > BLOCK_SIZE*6) return; // Max Reichweite 6 Blöcke
+const clock = new THREE.Clock();
 
-  if(e.button === 0) {
-    // Linksklick: Block abbauen (ersetzen mit Luft)
-    if(getBlockAt(worldX, worldY) !== 0) {
-      setBlockAt(worldX, worldY, 0);
+// Kollision mit Blöcken: einfache Sphere-AABB
+function checkPlayerCollision(pos) {
+  // Wir prüfen 3 Punkte: Fuß, Mitte, Kopf (vereinfacht)
+  // Check unterer Bereich (Fuß)
+  const footBlockY = Math.floor(pos.y);
+  for(let dx = -playerRadius; dx <= playerRadius; dx += playerRadius) {
+    for(let dz = -playerRadius; dz <= playerRadius; dz += playerRadius) {
+      const bx = Math.floor(pos.x + dx);
+      const by = footBlockY;
+      const bz = Math.floor(pos.z + dz);
+      if(getBlockAt(bx, by, bz) !== 0) {
+        return true;
+      }
     }
-  } else if(e.button === 2) {
-    // Rechtsklick: Block platzieren (Erde), wenn leer
-    if(getBlockAt(worldX, worldY) === 0) {
-      setBlockAt(worldX, worldY, 1);
+  }
+  // Check mittlere Höhe (Brust)
+  const midBlockY = Math.floor(pos.y + playerHeight/2);
+  for(let dx = -playerRadius; dx <= playerRadius; dx += playerRadius) {
+    for(let dz = -playerRadius; dz <= playerRadius; dz += playerRadius) {
+      const bx = Math.floor(pos.x + dx);
+      const by = midBlockY;
+      const bz = Math.floor(pos.z + dz);
+      if(getBlockAt(bx, by, bz) !== 0) {
+        return true;
+      }
+    }
+  }
+  // Check Kopf
+  const headBlockY = Math.floor(pos.y + playerHeight);
+  for(let dx = -playerRadius; dx <= playerRadius; dx += playerRadius) {
+    for(let dz = -playerRadius; dz <= playerRadius; dz += playerRadius) {
+      const bx = Math.floor(pos.x + dx);
+      const by = headBlockY;
+      const bz = Math.floor(pos.z + dz);
+      if(getBlockAt(bx, by, bz) !== 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Update Funktion
+function update() {
+  const delta = clock.getDelta();
+
+  // Bewegung in Richtung Kamera (2D)
+  direction.z = Number(moveForward) - Number(moveBackward);
+  direction.x = Number(moveRight) - Number(moveLeft);
+  direction.normalize();
+
+  if(controls.isLocked === true) {
+    // Bewegung horizontal
+    if(direction.length() > 0) {
+      playerVel.x -= direction.x * 10.0 * delta;
+      playerVel.z -= direction.z * 10.0 * delta;
+    }
+
+    // Gravitation
+    playerVel.y -= 30.0 * delta;
+
+    // Friction horizontal
+    playerVel.x -= playerVel.x * 10.0 * delta;
+    playerVel.z -= playerVel.z * 10.0 * delta;
+
+    // Neue Position berechnen
+    let nextPos = playerPos.clone();
+    nextPos.x += playerVel.x * delta;
+    nextPos.y += playerVel.y * delta;
+    nextPos.z += playerVel.z * delta;
+
+    // Kollision prüfen (Y getrennt von XZ)
+
+    // Y
+    let posYCheck = new THREE.Vector3(playerPos.x, nextPos.y, playerPos.z);
+    if(checkPlayerCollision(posYCheck)) {
+      // Kollidiert - wenn fällt -> auf Boden
+      if(playerVel.y < 0) {
+        canJump = true;
+      }
+      playerVel.y = 0;
+    } else {
+      playerPos.y = nextPos.y;
+      canJump = false;
+    }
+
+    // XZ
+    let posXCheck = new THREE.Vector3(nextPos.x, playerPos.y, nextPos.z);
+    if(!checkPlayerCollision(posXCheck)) {
+      playerPos.x = nextPos.x;
+      playerPos.z = nextPos.z;
+    } else {
+      playerVel.x = 0;
+      playerVel.z = 0;
+    }
+
+    // Kamera Position aktualisieren
+    controls.getObject().position.set(playerPos.x, playerPos.y + playerHeight, playerPos.z);
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(update);
+}
+
+// Blöcke abbauen und platzieren mit Maus
+window.addEventListener('mousedown', event => {
+  if(!controls.isLocked) return;
+
+  // Raycaster vom Kamera-Mittelpunkt
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+
+  // Alle Blockwürfel in Reichweite (6 Blöcke)
+  const intersects = raycaster.intersectObjects(scene.children, false);
+
+  if(intersects.length > 0) {
+    const intersect = intersects[0];
+    const point = intersect.point;
+    const normal = intersect.face.normal;
+
+    // Weltkoordinaten des getroffenen Blocks
+    const pos = new THREE.Vector3().copy(intersect.object.position);
+
+    const blockX = Math.floor(pos.x);
+    const blockY = Math.floor(pos.y);
+    const blockZ = Math.floor(pos.z);
+
+    if(event.button === 0) {
+      // Linksklick: Block abbauen
+      setBlockAt(blockX, blockY, blockZ, 0);
+    } else if(event.button === 2) {
+      // Rechtsklick: Block neben dem getroffenen Block platzieren
+      const placeX = blockX + normal.x;
+      const placeY = blockY + normal.y;
+      const placeZ = blockZ + normal.z;
+
+      // Nicht in Spieler setzen
+      if(Math.abs(placeX - playerPos.x) < 1 && Math.abs(placeY - playerPos.y) < 2 && Math.abs(placeZ - playerPos.z) < 1) {
+        // Nicht platzieren, wenn im Spieler
+        return;
+      }
+
+      setBlockAt(placeX, placeY, placeZ, 1);
     }
   }
 });
 
 // Rechtsklick Kontextmenü verhindern
-canvas.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('contextmenu', e => e.preventDefault());
 
-// Start Spiel
+// Fenstergröße anpassen
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Starte Update-Schleife
 update();
 </script>
 </body>
