@@ -1,362 +1,332 @@
-<!DOCTYPE html>
-<html lang="en">
+ <!DOCTYPE html>
+<html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoafBoxels</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #d4d4d8;
-            background: #18181b;
-            overflow-x: hidden;
-        }
-
-        /* Hero Section */
-        .hero {
-           height: 100vh;
-           background: url('https://i.imgur.com/tgAO8XU_off.png') no-repeat center center;
-           background-size: cover;
-           display: flex;
-           flex-direction: column;
-           justify-content: center;
-           align-items: center;
-           text-align: center;
-           position: relative;
-           border-radius: 0 0 40px 40px;
-          }
-
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                radial-gradient(circle at 30% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-                radial-gradient(circle at 70% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
-            animation: gentle-pulse 6s ease-in-out infinite alternate;
-        }
-
-        @keyframes gentle-pulse {
-            0% { opacity: 0.4; }
-            100% { opacity: 0.6; }
-        }
-
-        .logo {
-          width: 180px;
-          height: 180px;
-          background: url('https://i.imgur.com/I35a8N8.png') no-repeat center center;
-          background-size: cover;
-          border-radius: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 2.5rem;
-          color: #ffffff;
-          font-weight: 700;
-          margin-bottom: 2rem;
-          box-shadow: 0 10px 40px rgba(99, 102, 241, 0.2);
-          position: relative;
-          z-index: 3;
-         }
-
-
-        .hero-text {
-            color: #ffffff;
-            position: relative;
-            z-index: 3;
-        }
-
-        .hero h1 {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
-
-        .hero p {
-            font-size: 1.3rem;
-            margin-bottom: 2rem;
-            opacity: 0.8;
-            color: #a1a1aa;
-        }
-
-        .scroll-indicator {
-            display: none;
-        }
-
-        @keyframes gentle-bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
-            40% { transform: translateX(-50%) translateY(-8px); }
-            60% { transform: translateX(-50%) translateY(-4px); }
-        }
-
-        /* Mods Section */
-        .mods-section {
-            padding: 80px 20px;
-            background: linear-gradient(to bottom, #18181b, #1f1f23);
-            min-height: 100vh;
-            position: relative;
-            margin-top: 0;
-            border-radius: 40px 40px 0 0;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            position: relative;
-            z-index: 2;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 2.8rem;
-            margin-bottom: 3rem;
-            color: #ffffff;
-            position: relative;
-            font-weight: 600;
-        }
-
-        .section-title::after {
-            content: '';
-            width: 80px;
-            height: 4px;
-            background: linear-gradient(90deg, #6366f1, #8b5cf6);
-            position: absolute;
-            bottom: -15px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-radius: 10px;
-        }
-
-        .mod-card {
-            background: linear-gradient(145deg, #27272a, #3f3f46);
-            border-radius: 30px;
-            padding: 2.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-            border: 1px solid rgba(161, 161, 170, 0.1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .mod-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-            border-color: rgba(99, 102, 241, 0.3);
-        }
-
-        .mod-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            position: relative;
-            z-index: 2;
-        }
-
-        .mod-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            color: #ffffff;
-            margin-right: 1.5rem;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
-        }
-
-        .mod-info h3 {
-            font-size: 1.8rem;
-            color: #ffffff;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-
-        .mod-info p {
-            color: #a1a1aa;
-            font-size: 1rem;
-            line-height: 1.6;
-        }
-
-        .mod-actions {
-            margin-top: 2rem;
-            position: relative;
-            z-index: 2;
-        }
-
-        .action-group {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            align-items: center;
-        }
-
-        .download-btn, .copy-url-btn {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: #ffffff;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .copy-url-btn {
-            background: linear-gradient(135deg, #8b5cf6, #a855f7);
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
-        }
-
-        .download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
-        }
-
-        .copy-url-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
-        }
-
-        .url-display {
-            background: #1f1f23;
-            border-radius: 20px;
-            padding: 15px 20px;
-            border: 1px solid rgba(161, 161, 170, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.3s ease;
-        }
-
-        .url-display:hover {
-            border-color: rgba(99, 102, 241, 0.3);
-            background: #27272a;
-        }
-
-        .url-text {
-            color: #6366f1;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            flex-grow: 1;
-            margin-right: 15px;
-            word-break: break-all;
-        }
-
-        .copy-url-icon {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 12px;
-            padding: 6px 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            color: #6366f1;
-        }
-
-        .copy-url-icon:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: rgba(99, 102, 241, 0.4);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 2.5rem; }
-            .hero p { font-size: 1.1rem; }
-            .logo { width: 100px; height: 100px; font-size: 2rem; }
-            .mod-card { padding: 2rem; }
-            .action-group { flex-direction: column; }
-            .section-title { font-size: 2.2rem; }
-            .mod-header { flex-direction: column; text-align: center; }
-            .mod-icon { margin-right: 0; margin-bottom: 1rem; }
-            .url-display { flex-direction: column; gap: 10px; text-align: center; }
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #27272a;
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>Robuster Minecraft-Style Player & Terrain</title>
+<style>
+  html, body {
+    margin:0; padding:0; overflow:hidden;
+    width:100%; height:100%;
+    background:#87CEEB;
+  }
+  canvas {
+    width:100%; height:100%; display:block;
+    outline:none;
+  }
+</style>
 </head>
 <body>
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="logo"></div>
-        <div class="hero-text">
-            <h1>LoafBoxels</h1>
-        </div>
+<canvas id="renderCanvas" tabindex="0"></canvas>
 
-    </section>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
 
-    <!-- Mods Section -->
-    <section class="mods-section">
-        <div class="container">
-            <h2 class="section-title">Available Mods</h2>
-            
-            <div class="mod-card">
-                <div class="mod-header">
-                     <img src="https://i.imgur.com/tCBCa23.png" alt="Temperature+ Icon">
-                    <div class="mod-info">
-                        <h3>Temperature+</h3>
-                        <p>Temperature+ adds more Temperature bases tools.</p>
-                    </div>
-                </div>
+<script>
+// SimplexNoise-Klasse (für Terrain)
+class SimplexNoise {
+  constructor(random = Math.random) {
+    this.p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) this.p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const n = Math.floor((i + 1) * random());
+      [this.p[i], this.p[n]] = [this.p[n], this.p[i]];
+    }
+    this.perm = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) this.perm[i] = this.p[i & 255];
+  }
+  dot(g, x, y) { return g[0]*x + g[1]*y; }
+  noise2D(xin, yin) {
+    const grad3 = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+    const F2 = 0.5*(Math.sqrt(3)-1);
+    const G2 = (3-Math.sqrt(3))/6;
+    let n0=0,n1=0,n2=0;
+    let s = (xin+yin)*F2;
+    let i = Math.floor(xin+s);
+    let j = Math.floor(yin+s);
+    let t = (i+j)*G2;
+    let X0 = i - t;
+    let Y0 = j - t;
+    let x0 = xin - X0;
+    let y0 = yin - Y0;
+    let i1, j1;
+    if (x0>y0) { i1=1; j1=0; } else { i1=0; j1=1; }
+    let x1 = x0 - i1 + G2;
+    let y1 = y0 - j1 + G2;
+    let x2 = x0 - 1 + 2*G2;
+    let y2 = y0 - 1 + 2*G2;
+    i &= 255; j &= 255;
+    let gi0 = this.perm[i+this.perm[j]] % 8;
+    let gi1 = this.perm[i+i1+this.perm[j+j1]] % 8;
+    let gi2 = this.perm[i+1+this.perm[j+1]] % 8;
+    let t0 = 0.5 - x0*x0 - y0*y0;
+    if (t0>=0) {
+      t0 *= t0;
+      n0 = t0 * t0 * this.dot(grad3[gi0], x0, y0);
+    }
+    let t1 = 0.5 - x1*x1 - y1*y1;
+    if (t1>=0) {
+      t1 *= t1;
+      n1 = t1 * t1 * this.dot(grad3[gi1], x1, y1);
+    }
+    let t2 = 0.5 - x2*x2 - y2*y2;
+    if (t2>=0) {
+      t2 *= t2;
+      n2 = t2 * t2 * this.dot(grad3[gi2], x2, y2);
+    }
+    return 70 * (n0 + n1 + n2);
+  }
+}
 
-                    
-                    <div class="url-display">
-                        <span class="url-text" id="mod-url">https://t0byhub.github.io/LoafBoxels/Temperature+.js</span>
-                        
-                    </div>
-                    
-                </div>
-            </div>
-        </div>
-    </section>
+const canvas = document.getElementById("renderCanvas");
+const engine = new BABYLON.Engine(canvas, true);
 
-    <script>
+const scene = new BABYLON.Scene(engine);
+scene.clearColor = new BABYLON.Color3(0.53, 0.81, 0.92);
 
-        // Smooth scrolling
-        document.addEventListener('DOMContentLoaded', function() {
-            const scrollIndicator = document.querySelector('.scroll-indicator');
-            if (scrollIndicator) {
-                scrollIndicator.addEventListener('click', function() {
-                    document.querySelector('.mods-section').scrollIntoView({
-                        behavior: 'smooth'
-                    });
-                });
-            }
-        });
-    </script>
+const camera = new BABYLON.UniversalCamera("cam", new BABYLON.Vector3(0, 20, 0), scene);
+camera.attachControl(canvas, true);
+camera.speed = 0;
+
+const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1,1,0), scene);
+light.intensity = 0.9;
+
+const textureUrl = "https://i.imgur.com/OzBkltb.png";
+const blockTexture = new BABYLON.Texture(textureUrl, scene);
+const blockMaterial = new BABYLON.StandardMaterial("blockMat", scene);
+blockMaterial.diffuseTexture = blockTexture;
+blockMaterial.specularColor = new BABYLON.Color3(0,0,0);
+
+const CHUNK_SIZE = 16;
+const CHUNK_HEIGHT = 4;
+const SPACING = 1.0;
+const RENDER_DISTANCE = 2;
+
+const simplex = new SimplexNoise();
+
+const player = {
+  position: new BABYLON.Vector3(0, 20, 0),
+  velocity: new BABYLON.Vector3(0, 0, 0),
+  speed: 7,
+  gravity: -25,
+  jumpSpeed: 8,
+  height: 1.8,
+  radius: 0.4,
+  onGround: false
+};
+
+camera.position.copyFrom(player.position);
+camera.position.y += 0.5;
+
+const input = { forward:false, backward:false, left:false, right:false, jump:false };
+window.addEventListener("keydown", e => {
+  if(e.code === "KeyW") input.forward = true;
+  if(e.code === "KeyS") input.backward = true;
+  if(e.code === "KeyA") input.left = true;
+  if(e.code === "KeyD") input.right = true;
+  if(e.code === "Space") input.jump = true;
+});
+window.addEventListener("keyup", e => {
+  if(e.code === "KeyW") input.forward = false;
+  if(e.code === "KeyS") input.backward = false;
+  if(e.code === "KeyA") input.left = false;
+  if(e.code === "KeyD") input.right = false;
+  if(e.code === "Space") input.jump = false;
+});
+
+const chunks = new Map();
+
+// Blocks als AABB (Axis Aligned Bounding Box)
+class AABB {
+  constructor(min, max) {
+    this.min = min;
+    this.max = max;
+  }
+  intersects(other) {
+    return (this.min.x <= other.max.x && this.max.x >= other.min.x) &&
+           (this.min.y <= other.max.y && this.max.y >= other.min.y) &&
+           (this.min.z <= other.max.z && this.max.z >= other.min.z);
+  }
+}
+
+// Terrain und Chunks
+function generateChunk(cx, cz) {
+  const blocks = [];
+  for(let x=0; x<CHUNK_SIZE; x++) {
+    for(let z=0; z<CHUNK_SIZE; z++) {
+      let worldX = cx * CHUNK_SIZE + x;
+      let worldZ = cz * CHUNK_SIZE + z;
+      let noiseVal = (simplex.noise2D(worldX / 15, worldZ / 15) + 1) / 2;
+      noiseVal = noiseVal * 0.5 + 0.5; // flacheres Terrain
+      let height = Math.max(1, Math.floor(noiseVal * CHUNK_HEIGHT));
+
+      for(let y=0; y<height; y++) {
+        const block = BABYLON.MeshBuilder.CreateBox(`block_${cx}_${cz}_${x}_${y}_${z}`, { size: 1 }, scene);
+        block.position.set(worldX * SPACING, y, worldZ * SPACING);
+        block.material = blockMaterial;
+        blocks.push(block);
+      }
+    }
+  }
+  chunks.set(`${cx},${cz}`, blocks);
+}
+
+function disposeChunk(cx, cz) {
+  const key = `${cx},${cz}`;
+  if(chunks.has(key)) {
+    const blocks = chunks.get(key);
+    blocks.forEach(b => b.dispose());
+    chunks.delete(key);
+  }
+}
+
+function getPlayerChunk() {
+  return {
+    x: Math.floor(player.position.x / (CHUNK_SIZE * SPACING)),
+    z: Math.floor(player.position.z / (CHUNK_SIZE * SPACING))
+  };
+}
+
+function updateChunks() {
+  const pc = getPlayerChunk();
+  const neededChunks = new Set();
+
+  for(let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
+    for(let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
+      let cx = pc.x + dx;
+      let cz = pc.z + dz;
+      neededChunks.add(`${cx},${cz}`);
+      if(!chunks.has(`${cx},${cz}`)) generateChunk(cx, cz);
+    }
+  }
+
+  // Lösche nicht benötigte Chunks
+  for(let key of chunks.keys()) {
+    if(!neededChunks.has(key)) disposeChunk(...key.split(",").map(Number));
+  }
+}
+
+// Spieler AABB für Kollision
+function getPlayerAABB(pos) {
+  return new AABB(
+    new BABYLON.Vector3(pos.x - player.radius, pos.y - player.height/2, pos.z - player.radius),
+    new BABYLON.Vector3(pos.x + player.radius, pos.y + player.height/2, pos.z + player.radius)
+  );
+}
+
+// Block AABB für Kollision
+function getBlockAABB(block) {
+  const s = 0.5;
+  return new AABB(
+    block.position.subtract(new BABYLON.Vector3(s,s,s)),
+    block.position.add(new BABYLON.Vector3(s,s,s))
+  );
+}
+
+// Kollision zwischen Spieler und Blocks prüfen
+function checkCollision(pos) {
+  const playerBox = getPlayerAABB(pos);
+
+  // Prüfe nur Blöcke in Player-Chunks (Optimierung möglich)
+  for (let blocks of chunks.values()) {
+    for (let block of blocks) {
+      const blockBox = getBlockAABB(block);
+      if (playerBox.intersects(blockBox)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Bewegung mit Kollisionsvermeidung in kleinen Schritten
+function movePlayer(delta) {
+  // Input Richtung (WASD)
+  let moveDir = new BABYLON.Vector3(
+    (input.right ? 1 : 0) - (input.left ? 1 : 0),
+    0,
+    (input.backward ? 1 : 0) - (input.forward ? 1 : 0)
+  );
+
+  if(moveDir.lengthSquared() > 0) moveDir.normalize();
+
+  // Kameraorientierte Richtung
+  let forward = camera.getForwardRay().direction.clone();
+  forward.y = 0;
+  forward.normalize();
+  let right = BABYLON.Vector3.Cross(BABYLON.Axis.Y, forward).normalize();
+
+  let move = forward.scale(-moveDir.z).add(right.scale(moveDir.x)).scale(player.speed * delta);
+
+  // Schritte zum Vermeiden von "Tunneling"
+  const STEPS = 10;
+
+  // Bewegung X
+  let stepX = move.x / STEPS;
+  for(let i=0; i<STEPS; i++) {
+    let tryPos = player.position.add(new BABYLON.Vector3(stepX, 0, 0));
+    if(!checkCollision(tryPos)) player.position.x = tryPos.x;
+    else break;
+  }
+
+  // Bewegung Z
+  let stepZ = move.z / STEPS;
+  for(let i=0; i<STEPS; i++) {
+    let tryPos = player.position.add(new BABYLON.Vector3(0, 0, stepZ));
+    if(!checkCollision(tryPos)) player.position.z = tryPos.z;
+    else break;
+  }
+
+  // Gravitation & vertikale Bewegung
+  player.velocity.y += player.gravity * delta;
+  let newY = player.position.y + player.velocity.y * delta;
+
+  if(player.velocity.y <= 0) {
+    // Bodencheck mit kleinem Offset (um auf Boden zu stehen)
+    if(checkCollision(new BABYLON.Vector3(player.position.x, newY - player.height/2 - 0.05, player.position.z))) {
+      player.velocity.y = 0;
+      player.onGround = true;
+      player.position.y = Math.floor(newY - player.height/2) + player.height/2 + 0.05;
+    } else {
+      player.position.y = newY;
+      player.onGround = false;
+    }
+  } else {
+    // Kopfcheck (Springen)
+    if(checkCollision(new BABYLON.Vector3(player.position.x, newY + player.height/2, player.position.z))) {
+      player.velocity.y = 0;
+      player.position.y = Math.floor(newY + player.height/2) - player.height/2 - 0.05;
+    } else {
+      player.position.y = newY;
+    }
+  }
+
+  // Springen
+  if(input.jump && player.onGround) {
+    player.velocity.y = player.jumpSpeed;
+    player.onGround = false;
+  }
+
+  // Kamera folgt Spieler, leicht höher
+  camera.position.copyFrom(player.position);
+  camera.position.y += 0.5;
+}
+
+let lastTime = performance.now();
+
+engine.runRenderLoop(() => {
+  let now = performance.now();
+  let delta = (now - lastTime) / 1000;
+  lastTime = now;
+
+  updateChunks();
+  movePlayer(delta);
+
+  scene.render();
+});
+
+window.addEventListener("resize", () => engine.resize());
+canvas.focus();
+
+</script>
 </body>
 </html>
+
