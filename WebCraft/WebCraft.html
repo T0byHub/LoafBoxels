@@ -46,9 +46,7 @@ const blockMaterial = new THREE.MeshBasicMaterial({map: grassTexture});
 const blockGeo = new THREE.BoxGeometry(1,1,1);
 
 const blocks = new Map();
-
 function posKey(x,y,z){ return `${x},${y},${z}`; }
-
 function addBlock(x,y,z){
   const key = posKey(x,y,z);
   if(blocks.has(key)) return;
@@ -57,7 +55,6 @@ function addBlock(x,y,z){
   scene.add(mesh);
   blocks.set(key, mesh);
 }
-
 function removeBlock(x,y,z){
   const key = posKey(x,y,z);
   const mesh = blocks.get(key);
@@ -66,7 +63,6 @@ function removeBlock(x,y,z){
     blocks.delete(key);
   }
 }
-
 for(let x=-16; x<16; x++){
   for(let z=-16; z<16; z++){
     addBlock(x,0,z);
@@ -93,7 +89,6 @@ document.addEventListener('mousedown', e => {
   intersects.sort((a,b) => a.dist-b.dist);
   const hit = intersects[0];
   const pos = new THREE.Vector3().copy(hit.mesh.position).floor();
-
   if(e.button===0){
     removeBlock(pos.x,pos.y,pos.z);
   } else if(e.button===2){
