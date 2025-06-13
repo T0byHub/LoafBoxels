@@ -2,394 +2,306 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<title>Mini 3D Minecraft mit Three.js</title>
+<title>Mini 3D Minecraft in reinem WebGL</title>
 <style>
   body { margin: 0; overflow: hidden; }
   canvas { display: block; }
+  #instructions {
+    position: absolute; top: 10px; left: 10px; color: white; font-family: monospace;
+    background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;
+  }
 </style>
 </head>
 <body>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+<div id="instructions">
+  Klick zum Starten & Pointer Lock<br>
+  WASD: Bewegen, Maus: Blick<br>
+  Leertaste: Springen<br>
+  Linksklick: Block abbauen<br>
+  Rechtsklick: Block platzieren (in Blickrichtung)
+</div>
+<canvas id="glcanvas"></canvas>
 
 <script>
-// --- Setup Szene, Kamera, Renderer ---
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); // Himmelblau
+// --- Globals ---
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.y = 5;
+const canvas = document.getElementById('glcanvas');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+const gl = canvas.getContext('webgl');
+if (!gl) {
+  alert('WebGL wird nicht unterstützt');
+}
 
-// Steuerung: PointerLockControls für FPS-Bewegung
-const controls = new THREE.PointerLockControls(camera, document.body);
+// --- Shader Quellen ---
 
-document.body.addEventListener('click', () => {
-  controls.lock();
-}, false);
+const vsSource = `
+  attribute vec3 aPosition;
+  uniform mat4 uProjectionMatrix;
+  uniform mat4 uViewMatrix;
+  uniform mat4 uModelMatrix;
+  void main(void) {
+    gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPosition, 1.0);
+  }
+`;
 
-let moveForward = false;
-let moveBackward = false;
-let moveLeft = false;
-let moveRight = false;
-let canJump = false;
+const fsSource = `
+  precision mediump float;
+  uniform vec4 uColor;
+  void main(void) {
+    gl_FragColor = uColor;
+  }
+`;
 
-const velocity = new THREE.Vector3();
-const direction = new THREE.Vector3();
+// --- Shader erstellen und kompilieren ---
+function loadShader(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    alert('Shader Fehler: ' + gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
 
-const onKeyDown = function (event) {
-  switch (event.code) {
-    case 'ArrowUp':
-    case 'KeyW':
-      moveForward = true;
-      break;
-    case 'ArrowLeft':
-    case 'KeyA':
-      moveLeft = true;
-      break;
-    case 'ArrowDown':
-    case 'KeyS':
-      moveBackward = true;
-      break;
-    case 'ArrowRight':
-    case 'KeyD':
-      moveRight = true;
-      break;
-    case 'Space':
-      if (canJump === true) velocity.y += 10;
-      canJump = false;
-      break;
+function initShaderProgram(vsSrc, fsSrc) {
+  const vertexShader = loadShader(gl.VERTEX_SHADER, vsSrc);
+  const fragmentShader = loadShader(gl.FRAGMENT_SHADER, fsSrc);
+  const shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+  if(!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    alert('Shader Programm Fehler: ' + gl.getProgramInfoLog(shaderProgram));
+    return null;
+  }
+  return shaderProgram;
+}
+
+const shaderProgram = initShaderProgram(vsSource, fsSource);
+
+const programInfo = {
+  program: shaderProgram,
+  attribLocations: {
+    vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
+  },
+  uniformLocations: {
+    projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+    viewMatrix: gl.getUniformLocation(shaderProgram, 'uViewMatrix'),
+    modelMatrix: gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
+    color: gl.getUniformLocation(shaderProgram, 'uColor'),
   }
 };
 
-const onKeyUp = function (event) {
-  switch (event.code) {
-    case 'ArrowUp':
-    case 'KeyW':
-      moveForward = false;
-      break;
-    case 'ArrowLeft':
-    case 'KeyA':
-      moveLeft = false;
-      break;
-    case 'ArrowDown':
-    case 'KeyS':
-      moveBackward = false;
-      break;
-    case 'ArrowRight':
-    case 'KeyD':
-      moveRight = false;
-      break;
-  }
+// --- Würfel Geometrie (8 Eckpunkte, 36 Indizes) ---
+
+const cubeVertices = new Float32Array([
+  // Front face
+  0,0,1,
+  1,0,1,
+  1,1,1,
+  0,1,1,
+  // Back face
+  0,0,0,
+  1,0,0,
+  1,1,0,
+  0,1,0,
+]);
+
+const cubeIndices = new Uint16Array([
+  0,1,2, 0,2,3,       // Front
+  5,4,7, 5,7,6,       // Back
+  4,0,3, 4,3,7,       // Left
+  1,5,6, 1,6,2,       // Right
+  3,2,6, 3,6,7,       // Top
+  4,5,1, 4,1,0        // Bottom
+]);
+
+// --- Buffer Setup ---
+
+const positionBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, cubeVertices, gl.STATIC_DRAW);
+
+const indexBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cubeIndices, gl.STATIC_DRAW);
+
+// --- Perspektivmatrix ---
+function perspective(fovy, aspect, near, far) {
+  const f = 1.0 / Math.tan(fovy / 2);
+  const nf = 1 / (near - far);
+  const out = new Float32Array(16);
+  out[0] = f / aspect;
+  out[1] = 0;
+  out[2] = 0;
+  out[3] = 0;
+
+  out[4] = 0;
+  out[5] = f;
+  out[6] = 0;
+  out[7] = 0;
+
+  out[8] = 0;
+  out[9] = 0;
+  out[10] = (far + near) * nf;
+  out[11] = -1;
+
+  out[12] = 0;
+  out[13] = 0;
+  out[14] = (2 * far * near) * nf;
+  out[15] = 0;
+  return out;
+}
+
+// --- Mat4 LookAt Matrix ---
+
+function normalize(v) {
+  const len = Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+  return [v[0]/len, v[1]/len, v[2]/len];
+}
+
+function cross(a,b) {
+  return [
+    a[1]*b[2]-a[2]*b[1],
+    a[2]*b[0]-a[0]*b[2],
+    a[0]*b[1]-a[1]*b[0]
+  ];
+}
+
+function subtract(a,b) {
+  return [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+}
+
+function lookAt(eye, center, up) {
+  const f = normalize(subtract(center, eye));
+  const s = normalize(cross(f, up));
+  const u = cross(s, f);
+
+  const out = new Float32Array(16);
+  out[0] = s[0];
+  out[1] = u[0];
+  out[2] = -f[0];
+  out[3] = 0;
+
+  out[4] = s[1];
+  out[5] = u[1];
+  out[6] = -f[1];
+  out[7] = 0;
+
+  out[8] = s[2];
+  out[9] = u[2];
+  out[10] = -f[2];
+  out[11] = 0;
+
+  out[12] = - (s[0]*eye[0] + s[1]*eye[1] + s[2]*eye[2]);
+  out[13] = - (u[0]*eye[0] + u[1]*eye[1] + u[2]*eye[2]);
+  out[14] = (f[0]*eye[0] + f[1]*eye[1] + f[2]*eye[2]);
+  out[15] = 1;
+
+  return out;
+}
+
+// --- Mat4 Translation ---
+function translate(m, v) {
+  const out = new Float32Array(m);
+  out[12] += v[0];
+  out[13] += v[1];
+  out[14] += v[2];
+  return out;
+}
+
+// --- Mat4 Skalierung ---
+function scale(m, v) {
+  const out = new Float32Array(16);
+  for(let i=0; i<16; i++) out[i] = m[i];
+  out[0] *= v[0];
+  out[5] *= v[1];
+  out[10]*= v[2];
+  return out;
+}
+
+// --- Kamera & Spieler ---
+const player = {
+  pos: [8, 5, 8],
+  rot: [0, 0], // pitch, yaw
+  velocity: [0,0,0],
+  canJump: false
 };
 
-document.addEventListener('keydown', onKeyDown);
-document.addEventListener('keyup', onKeyUp);
+let keys = {};
 
-// --- Block und Chunk Setup ---
+// --- Pointer Lock & Maus Bewegung ---
+canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
 
-const BLOCK_SIZE = 1;
-const CHUNK_SIZE = 16;
+document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
+
+canvas.onclick = () => {
+  canvas.requestPointerLock();
+};
+
+document.addEventListener('pointerlockchange', lockChange, false);
+document.addEventListener('mozpointerlockchange', lockChange, false);
+
+function lockChange() {
+  if(document.pointerLockElement === canvas || document.mozPointerLockElement === canvas) {
+    document.addEventListener("mousemove", onMouseMove, false);
+  } else {
+    document.removeEventListener("mousemove", onMouseMove, false);
+  }
+}
+
+function onMouseMove(e) {
+  const sensitivity = 0.002;
+  player.rot[1] -= e.movementX * sensitivity; // yaw
+  player.rot[0] -= e.movementY * sensitivity; // pitch
+  if(player.rot[0] < -Math.PI/2) player.rot[0] = -Math.PI/2;
+  if(player.rot[0] > Math.PI/2) player.rot[0] = Math.PI/2;
+}
+
+// --- Key Events ---
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if(e.code === "Space" && player.canJump) {
+    player.velocity[1] = 8;
+    player.canJump = false;
+  }
+});
+
+document.addEventListener('keyup', e => {
+  keys[e.code] = false;
+});
+
+// --- Terrain Daten ---
+
+const WORLD_SIZE = 16; // 16x16 Blöcke flach
 const WORLD_HEIGHT = 16;
 
-// Einfaches Terrain perlin-artig (Sinus + Rauschen)
-function terrainHeight(x, z) {
-  return Math.floor(5 + 2 * Math.sin(x * 0.3) + 2 * Math.cos(z * 0.3));
-}
+const world = new Uint8Array(WORLD_SIZE*WORLD_HEIGHT*WORLD_SIZE);
 
-// Welt-Daten (Chunks), Map von chunkX, chunkZ zu Block 3D Arrays
-const worldChunks = new Map();
-
-// Key für chunk Map
-function chunkKey(cx, cz) {
-  return cx + ',' + cz;
-}
-
-// Material für Blöcke
-const blockMaterial = new THREE.MeshLambertMaterial({color: 0x654321});
-const blockGeometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-
-// Chunk-Objekt speichert Mesh für Optimierung
-class Chunk {
-  constructor(cx, cz) {
-    this.cx = cx;
-    this.cz = cz;
-    this.blocks = []; // 3D Array [x][y][z] = 0/1
-    this.meshGroup = new THREE.Group();
-    this.meshGroup.position.set(cx * CHUNK_SIZE * BLOCK_SIZE, 0, cz * CHUNK_SIZE * BLOCK_SIZE);
-    scene.add(this.meshGroup);
-    this.generate();
-  }
-
-  generate() {
-    // Erstelle 3D Array
-    this.blocks = new Array(CHUNK_SIZE);
-    for(let x=0; x<CHUNK_SIZE; x++) {
-      this.blocks[x] = new Array(WORLD_HEIGHT);
-      for(let y=0; y<WORLD_HEIGHT; y++) {
-        this.blocks[x][y] = new Array(CHUNK_SIZE).fill(0);
-      }
+// Terrain generieren (einfach Hügel mit Sinus)
+for(let x=0; x<WORLD_SIZE; x++) {
+  for(let z=0; z<WORLD_SIZE; z++) {
+    const height = Math.floor(5 + 3 * Math.sin(x * 0.5) + 3 * Math.cos(z * 0.5));
+    for(let y=0; y<=height; y++) {
+      setBlock(x,y,z,1);
     }
-    // Fülle mit Terrain
-    for(let x=0; x<CHUNK_SIZE; x++) {
-      for(let z=0; z<CHUNK_SIZE; z++) {
-        const worldX = this.cx * CHUNK_SIZE + x;
-        const worldZ = this.cz * CHUNK_SIZE + z;
-        const h = terrainHeight(worldX, worldZ);
-        for(let y=0; y < h; y++) {
-          this.blocks[x][y][z] = 1; // Block vorhanden
-        }
-      }
-    }
-    this.buildMesh();
-  }
-
-  buildMesh() {
-    // Entferne alte Meshes
-    while(this.meshGroup.children.length) {
-      const child = this.meshGroup.children[0];
-      this.meshGroup.remove(child);
-      child.geometry.dispose();
-      child.material.dispose();
-    }
-    // Baue neue Würfel Meshes
-    for(let x=0; x<CHUNK_SIZE; x++) {
-      for(let y=0; y<WORLD_HEIGHT; y++) {
-        for(let z=0; z<CHUNK_SIZE; z++) {
-          if(this.blocks[x][y][z] === 1) {
-            const cube = new THREE.Mesh(blockGeometry, blockMaterial);
-            cube.position.set(
-              x * BLOCK_SIZE + BLOCK_SIZE/2,
-              y * BLOCK_SIZE + BLOCK_SIZE/2,
-              z * BLOCK_SIZE + BLOCK_SIZE/2
-            );
-            this.meshGroup.add(cube);
-          }
-        }
-      }
-    }
-  }
-
-  // Block setzen und Mesh aktualisieren
-  setBlock(x, y, z, val) {
-    if(x<0||x>=CHUNK_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=CHUNK_SIZE) return;
-    this.blocks[x][y][z] = val;
-    this.buildMesh();
-  }
-
-  getBlock(x, y, z) {
-    if(x<0||x>=CHUNK_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=CHUNK_SIZE) return 0;
-    return this.blocks[x][y][z];
   }
 }
 
-// Chunk laden oder generieren
-function getChunk(cx, cz) {
-  const key = chunkKey(cx, cz);
-  if(!worldChunks.has(key)) {
-    const chunk = new Chunk(cx, cz);
-    worldChunks.set(key, chunk);
-  }
-  return worldChunks.get(key);
+function setBlock(x,y,z,val) {
+  if(x<0||x>=WORLD_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=WORLD_SIZE) return;
+  world[y*WORLD_SIZE*WORLD_SIZE + z*WORLD_SIZE + x] = val;
 }
 
-// Weltweiten Block abfragen
-function getBlockAt(wx, wy, wz) {
-  const cx = Math.floor(wx / CHUNK_SIZE);
-  const cz = Math.floor(wz / CHUNK_SIZE);
-  const chunk = getChunk(cx, cz);
-  const lx = wx - cx * CHUNK_SIZE;
-  const lz = wz - cz * CHUNK_SIZE;
-  if(wy < 0 || wy >= WORLD_HEIGHT) return 0;
-  return chunk.getBlock(lx, wy, lz);
+function getBlock(x,y,z) {
+  if(x<0||x>=WORLD_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=WORLD_SIZE) return 0;
+  return world[y*WORLD_SIZE*WORLD_SIZE + z*WORLD_SIZE + x];
 }
 
-// Weltweiten Block setzen
-function setBlockAt(wx, wy, wz, val) {
-  const cx = Math.floor(wx / CHUNK_SIZE);
-  const cz = Math.floor(wz / CHUNK_SIZE);
-  const chunk = getChunk(cx, cz);
-  const lx = wx - cx * CHUNK_SIZE;
-  const lz = wz - cz * CHUNK_SIZE;
-  chunk.setBlock(lx, wy, lz, val);
-}
+// --- Rendering Würfel Funktion ---
 
-// Licht
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(10, 20, 10);
-scene.add(light);
-scene.add(new THREE.AmbientLight(0x888888));
-
-// Spieler Position (Weltkoordinaten in Blöcken, float für smooth)
-const playerPos = new THREE.Vector3(8, 10, 8);
-const playerVel = new THREE.Vector3(0, 0, 0);
-const playerHeight = 1.6;
-const playerRadius = 0.3;
-
-const clock = new THREE.Clock();
-
-// Kollision mit Blöcken: einfache Sphere-AABB
-function checkPlayerCollision(pos) {
-  // Wir prüfen 3 Punkte: Fuß, Mitte, Kopf (vereinfacht)
-  // Check unterer Bereich (Fuß)
-  const footBlockY = Math.floor(pos.y);
-  for(let dx = -playerRadius; dx <= playerRadius; dx += playerRadius) {
-    for(let dz = -playerRadius; dz <= playerRadius; dz += playerRadius) {
-      const bx = Math.floor(pos.x + dx);
-      const by = footBlockY;
-      const bz = Math.floor(pos.z + dz);
-      if(getBlockAt(bx, by, bz) !== 0) {
-        return true;
-      }
-    }
-  }
-  // Check mittlere Höhe (Brust)
-  const midBlockY = Math.floor(pos.y + playerHeight/2);
-  for(let dx = -playerRadius; dx <= playerRadius; dx += playerRadius) {
-    for(let dz = -playerRadius; dz <= playerRadius; dz += playerRadius) {
-      const bx = Math.floor(pos.x + dx);
-      const by = midBlockY;
-      const bz = Math.floor(pos.z + dz);
-      if(getBlockAt(bx, by, bz) !== 0) {
-        return true;
-      }
-    }
-  }
-  // Check Kopf
-  const headBlockY = Math.floor(pos.y + playerHeight);
-  for(let dx = -playerRadius; dx <= playerRadius; dx += playerRadius) {
-    for(let dz = -playerRadius; dz <= playerRadius; dz += playerRadius) {
-      const bx = Math.floor(pos.x + dx);
-      const by = headBlockY;
-      const bz = Math.floor(pos.z + dz);
-      if(getBlockAt(bx, by, bz) !== 0) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-// Update Funktion
-function update() {
-  const delta = clock.getDelta();
-
-  // Bewegung in Richtung Kamera (2D)
-  direction.z = Number(moveForward) - Number(moveBackward);
-  direction.x = Number(moveRight) - Number(moveLeft);
-  direction.normalize();
-
-  if(controls.isLocked === true) {
-    // Bewegung horizontal
-    if(direction.length() > 0) {
-      playerVel.x -= direction.x * 10.0 * delta;
-      playerVel.z -= direction.z * 10.0 * delta;
-    }
-
-    // Gravitation
-    playerVel.y -= 30.0 * delta;
-
-    // Friction horizontal
-    playerVel.x -= playerVel.x * 10.0 * delta;
-    playerVel.z -= playerVel.z * 10.0 * delta;
-
-    // Neue Position berechnen
-    let nextPos = playerPos.clone();
-    nextPos.x += playerVel.x * delta;
-    nextPos.y += playerVel.y * delta;
-    nextPos.z += playerVel.z * delta;
-
-    // Kollision prüfen (Y getrennt von XZ)
-
-    // Y
-    let posYCheck = new THREE.Vector3(playerPos.x, nextPos.y, playerPos.z);
-    if(checkPlayerCollision(posYCheck)) {
-      // Kollidiert - wenn fällt -> auf Boden
-      if(playerVel.y < 0) {
-        canJump = true;
-      }
-      playerVel.y = 0;
-    } else {
-      playerPos.y = nextPos.y;
-      canJump = false;
-    }
-
-    // XZ
-    let posXCheck = new THREE.Vector3(nextPos.x, playerPos.y, nextPos.z);
-    if(!checkPlayerCollision(posXCheck)) {
-      playerPos.x = nextPos.x;
-      playerPos.z = nextPos.z;
-    } else {
-      playerVel.x = 0;
-      playerVel.z = 0;
-    }
-
-    // Kamera Position aktualisieren
-    controls.getObject().position.set(playerPos.x, playerPos.y + playerHeight, playerPos.z);
-  }
-
-  renderer.render(scene, camera);
-  requestAnimationFrame(update);
-}
-
-// Blöcke abbauen und platzieren mit Maus
-window.addEventListener('mousedown', event => {
-  if(!controls.isLocked) return;
-
-  // Raycaster vom Kamera-Mittelpunkt
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-
-  // Alle Blockwürfel in Reichweite (6 Blöcke)
-  const intersects = raycaster.intersectObjects(scene.children, false);
-
-  if(intersects.length > 0) {
-    const intersect = intersects[0];
-    const point = intersect.point;
-    const normal = intersect.face.normal;
-
-    // Weltkoordinaten des getroffenen Blocks
-    const pos = new THREE.Vector3().copy(intersect.object.position);
-
-    const blockX = Math.floor(pos.x);
-    const blockY = Math.floor(pos.y);
-    const blockZ = Math.floor(pos.z);
-
-    if(event.button === 0) {
-      // Linksklick: Block abbauen
-      setBlockAt(blockX, blockY, blockZ, 0);
-    } else if(event.button === 2) {
-      // Rechtsklick: Block neben dem getroffenen Block platzieren
-      const placeX = blockX + normal.x;
-      const placeY = blockY + normal.y;
-      const placeZ = blockZ + normal.z;
-
-      // Nicht in Spieler setzen
-      if(Math.abs(placeX - playerPos.x) < 1 && Math.abs(placeY - playerPos.y) < 2 && Math.abs(placeZ - playerPos.z) < 1) {
-        // Nicht platzieren, wenn im Spieler
-        return;
-      }
-
-      setBlockAt(placeX, placeY, placeZ, 1);
-    }
-  }
-});
-
-// Rechtsklick Kontextmenü verhindern
-window.addEventListener('contextmenu', e => e.preventDefault());
-
-// Fenstergröße anpassen
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// Starte Update-Schleife
-update();
-</script>
-</body>
-</html>
+function renderCube(x,y,z)
