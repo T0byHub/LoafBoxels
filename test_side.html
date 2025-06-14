@@ -32,16 +32,89 @@
       const scene = new BABYLON.Scene(engine);
       scene.clearColor = new BABYLON.Color3(0.5, 0.8, 1.0); // Himmelblau
 
-      const camera = new BABYLON.ArcRotateCamera("cam", Math.PI / 4, Math.PI / 3, 5, BABYLON.Vector3.Zero(), scene);
+      const camera = new BABYLON.ArcRotateCamera("cam", Math.PI / 4, Math.PI / 3, 10, BABYLON.Vector3.Zero(), scene);
       camera.attachControl(canvas, true);
 
       const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
       light.intensity = 0.9;
 
-      const box = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene);
-      const mat = new BABYLON.StandardMaterial("mat", scene);
-      mat.diffuseColor = new BABYLON.Color3(0.55, 0.27, 0.07); // braun
-      box.material = mat;
+      const blockSize = 1;
+
+      // Material für Blöcke
+      const blockMaterial = new BABYLON.StandardMaterial("blockMat", scene);
+      blockMaterial.diffuseColor = new BABYLON.Color3(0.55, 0.27, 0.07); // braun
+
+      // Anfangsblock (Ground)
+      let blocks = {};
+
+      function createBlock(x, y, z) {
+        const box = BABYLON.MeshBuilder.CreateBox(`block_${x}_${y}_${z}`, { size: blockSize }, scene);
+        box.position = new BABYLON.Vector3(x, y, z);
+        box.material = blockMaterial;
+        box.isPickable = true;
+        blocks[`${x}_${y}_${z}`] = box;
+        return box;
+      }
+
+      // Erstelle eine kleine Fläche als Start
+      for (let x = -2; x <= 2; x++) {
+        for (let z = -2; z <= 2; z++) {
+          createBlock(x, 0, z);
+        }
+      }
+
+      // Ray für Klick-Erkennung
+      const rayHelper = new BABYLON.RayHelper();
+
+      // Hilfsfunktion: Rundet Position auf Blockraster
+      function roundPositionToBlock(pos) {
+        return new BABYLON.Vector3(
+          Math.round(pos.x),
+          Math.round(pos.y),
+          Math.round(pos.z)
+        );
+      }
+
+      // Linksklick = Block abbauen
+      canvas.addEventListener("pointerdown", function(evt) {
+        if (evt.button === 0) { // Linksklick
+          const pickResult = scene.pick(scene.pointerX, scene.pointerY);
+          if (pickResult.hit && pickResult.pickedMesh && pickResult.pickedMesh.name.startsWith("block_")) {
+            const mesh = pickResult.pickedMesh;
+            // Block entfernen
+            mesh.dispose();
+            // Aus blocks entfernen
+            delete blocks[mesh.name.split("block_")[1]];
+          }
+        } else if (evt.button === 2) { // Rechtsklick
+          evt.preventDefault(); // Kontextmenü verhindern
+          const pickResult = scene.pick(scene.pointerX, scene.pointerY, (mesh) => mesh.isPickable);
+          if (pickResult.hit && pickResult.pickedMesh) {
+            // Position des getroffenen Blocks
+            const pos = pickResult.pickedPoint;
+
+            // Normal des getroffenen Dreiecks herausfinden
+            const normal = pickResult.getNormal(true);
+
+            // Neue Position = getroffene Position + Normal, gerundet auf Raster
+            const newPos = new BABYLON.Vector3(
+              Math.round(pos.x + normal.x),
+              Math.round(pos.y + normal.y),
+              Math.round(pos.z + normal.z)
+            );
+
+            // Prüfen ob an der neuen Position schon ein Block ist
+            if (!blocks[`${newPos.x}_${newPos.y}_${newPos.z}`]) {
+              createBlock(newPos.x, newPos.y, newPos.z);
+            }
+          }
+        }
+      });
+
+      // Rechtsklick Menü verhindern
+      window.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+      });
 
       engine.runRenderLoop(() => {
         scene.render();
